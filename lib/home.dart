@@ -23,6 +23,9 @@ class _HomepageState extends State<Homepage> {
     ProfilePage(),
   ];
 
+  final String appId = 'e43bfa08';
+  final String appKey = '1d81898bcefe7695ed3b765026cdb4ef';
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
