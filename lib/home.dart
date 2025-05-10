@@ -3,6 +3,7 @@ import 'package:gym_app_project/profile.dart';
 import 'calorie.dart';
 import 'comment_page.dart';
 import 'explore.dart';
+import 'Maps.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 
@@ -19,8 +20,9 @@ class _HomepageState extends State<Homepage> {
   final List<Widget> pages = [
    HomePage(),
    ExplorePage(),
-    CaloriesPage(),
-    ProfilePage(),
+   const MapsPage(),
+   CaloriesPage(),
+   ProfilePage(),
   ];
 
   final String appId = 'e43bfa08';
@@ -55,6 +57,7 @@ class _HomepageState extends State<Homepage> {
         items: const <BottomNavigationBarItem>[
           BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
           BottomNavigationBarItem(icon: Icon(Icons.search), label: 'Search'),
+          BottomNavigationBarItem(icon: Icon(Icons.map), label: 'Map'),
           BottomNavigationBarItem(icon: Icon(Icons.food_bank), label: 'Calories'),
           BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
         ],
