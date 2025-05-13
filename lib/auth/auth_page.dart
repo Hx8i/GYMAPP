@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../services/auth_service.dart';
 
 class AuthPage extends StatefulWidget {
   const AuthPage({super.key});
@@ -16,6 +17,7 @@ class _AuthPageState extends State<AuthPage> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _nameController = TextEditingController();
+  final _authService = AuthService();
 
   @override
   void dispose() {
@@ -25,27 +27,50 @@ class _AuthPageState extends State<AuthPage> {
     super.dispose();
   }
 
-  void _handleSubmit() {
+  Future<void> _handleSubmit() async {
     if (_formKey.currentState!.validate()) {
       setState(() {
         isLoading = true;
       });
 
-      // Simulate loading
-      Future.delayed(const Duration(seconds: 2), () {
+      try {
+        if (isLogin) {
+          await _authService.signInWithEmailAndPassword(
+            _emailController.text.trim(),
+            _passwordController.text.trim(),
+          );
+        } else {
+          await _authService.registerWithEmailAndPassword(
+            _emailController.text.trim(),
+            _passwordController.text.trim(),
+            _nameController.text.trim(),
+            selectedPlan,
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(e.toString()),
+              backgroundColor: Colors.red,
+              duration: const Duration(seconds: 5),
+              action: SnackBarAction(
+                label: 'Dismiss',
+                textColor: Colors.white,
+                onPressed: () {
+                  ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                },
+              ),
+            ),
+          );
+        }
+      } finally {
         if (mounted) {
           setState(() {
             isLoading = false;
           });
-          // For testing, just show a success message
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Success! (This is just a UI test)'),
-              backgroundColor: Colors.green,
-            ),
-          );
         }
-      });
+      }
     }
   }
 

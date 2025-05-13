@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "640391418655",
+    "project_id": "gymhub-c23fb",
+    "storage_bucket": "gymhub-c23fb.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:640391418655:android:b5db12b4a6bcc552ef162a",
+        "android_client_info": {
+          "package_name": "com.gymhub.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCqO8Bj_UyofM_FztAT1IbUIcIerbKdcAo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:640391418655:android:58fb18d1a78bd674ef162a",
+        "android_client_info": {
+          "package_name": "com.gymhub.company"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCqO8Bj_UyofM_FztAT1IbUIcIerbKdcAo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

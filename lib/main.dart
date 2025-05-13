@@ -1,8 +1,32 @@
 import 'package:flutter/material.dart';
 import 'package:gym_app_project/home.dart';
 import 'package:gym_app_project/auth/auth_page.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  try {
+    if (kIsWeb) {
+      await Firebase.initializeApp(
+        options: const FirebaseOptions(
+          apiKey: "AIzaSyBUdw3Fmi6MnOq5ucF9nTiM4NLCgwLOn58",
+          authDomain: "gymhub-c23fb.firebaseapp.com",
+          projectId: "gymhub-c23fb",
+          storageBucket: "gymhub-c23fb.firebasestorage.app",
+          messagingSenderId: "640391418655",
+          appId: "1:640391418655:web:4ef945915f8d3d57ef162a",
+          measurementId: "G-8JPHHEXTZ9"
+        ),
+      );
+    } else {
+      await Firebase.initializeApp();
+    }
+    print('Firebase initialized successfully');
+  } catch (e) {
+    print('Error initializing Firebase: $e');
+  }
   runApp(const MyApp());
 }
 
@@ -27,19 +51,25 @@ class MyApp extends StatelessWidget {
   }
 }
 
-class AuthWrapper extends StatefulWidget {
+class AuthWrapper extends StatelessWidget {
   const AuthWrapper({super.key});
 
   @override
-  State<AuthWrapper> createState() => _AuthWrapperState();
-}
-
-class _AuthWrapperState extends State<AuthWrapper> {
-  bool isLoggedIn = false; // This will be replaced with actual auth state
-
-  @override
   Widget build(BuildContext context) {
-    return isLoggedIn ? const Homepage() : const AuthPage();
+    return StreamBuilder<User?>(
+      stream: FirebaseAuth.instance.authStateChanges(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        
+        if (snapshot.hasData) {
+          return const Homepage();
+        }
+        
+        return const AuthPage();
+      },
+    );
   }
 }
 

@@ -20,8 +20,8 @@ class _CaloriesPageState extends State<CaloriesPage> {
   bool isScanning = false;
 
   // Nutritionix API credentials
-  final String appId = 'e43bfa08'; // Replace with your Nutritionix App ID
-  final String appKey = '1d81898bcefe7695ed3b765026cdb4ef'; // Replace with your Nutritionix App Key
+  final String appId = 'e43bfa08';
+  final String appKey = '1d81898bcefe7695ed3b765026cdb4ef';
 
   // Daily totals
   double totalCalories = 0;
@@ -149,11 +149,20 @@ class _CaloriesPageState extends State<CaloriesPage> {
     return Scaffold(
       backgroundColor: Colors.grey[100],
       appBar: AppBar(
-        title: const Text("Calorie Tracker"),
+        title: const Text(
+          "Calorie Tracker",
+          style: TextStyle(color: Colors.black),
+        ),
         centerTitle: true,
+        backgroundColor: Colors.white,
+        elevation: 0,
+        iconTheme: const IconThemeData(color: Colors.black),
         actions: [
           IconButton(
-            icon: Icon(isScanning ? Icons.close : Icons.qr_code_scanner),
+            icon: Icon(
+              isScanning ? Icons.close : Icons.qr_code_scanner,
+              color: Colors.black,
+            ),
             onPressed: () {
               setState(() {
                 isScanning = !isScanning;
