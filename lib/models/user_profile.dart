@@ -9,6 +9,7 @@ class UserProfile {
   final double height;
   final double bodyFat;
   final Map<String, double> prs;
+  final String plan;
 
   UserProfile({
     required this.uid,
@@ -19,6 +20,7 @@ class UserProfile {
     required this.height,
     required this.bodyFat,
     required this.prs,
+    required this.plan,
   });
 
   factory UserProfile.fromFirestore(DocumentSnapshot doc) {
@@ -32,11 +34,27 @@ class UserProfile {
       height: (data['height'] ?? 0.0).toDouble(),
       bodyFat: (data['bodyFat'] ?? 0.0).toDouble(),
       prs: Map<String, double>.from(data['prs'] ?? {}),
+      plan: data['plan'] ?? 'Basic User',
+    );
+  }
+
+  factory UserProfile.fromMap(Map<String, dynamic> map) {
+    return UserProfile(
+      uid: map['uid'] as String,
+      name: map['name'] as String? ?? '',
+      bio: map['bio'] as String? ?? '',
+      profilePictureUrl: map['profilePictureUrl'] as String?,
+      weight: (map['weight'] as num?)?.toDouble() ?? 0.0,
+      height: (map['height'] as num?)?.toDouble() ?? 0.0,
+      bodyFat: (map['bodyFat'] as num?)?.toDouble() ?? 0.0,
+      prs: Map<String, double>.from(map['prs'] as Map? ?? {}),
+      plan: map['plan'] as String? ?? 'Basic Plan',
     );
   }
 
   Map<String, dynamic> toMap() {
     return {
+      'uid': uid,
       'name': name,
       'bio': bio,
       'profilePictureUrl': profilePictureUrl,
@@ -44,6 +62,7 @@ class UserProfile {
       'height': height,
       'bodyFat': bodyFat,
       'prs': prs,
+      'plan': plan,
     };
   }
 } 

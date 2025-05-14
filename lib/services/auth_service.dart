@@ -61,11 +61,21 @@ class AuthService {
       );
       print('User created successfully with UID: ${userCredential.user?.uid}');
 
-      // Then create the user document in Firestore
+      // Then create the user document in Firestore with the plan
       await _firestore.collection('users').doc(userCredential.user!.uid).set({
+        'uid': userCredential.user!.uid,
         'name': name,
         'email': email,
         'plan': plan,
+        'bio': 'Welcome to Gym App! Update your profile to get started.',
+        'weight': 0.0,
+        'height': 0.0,
+        'bodyFat': 0.0,
+        'prs': {
+          'Bench Press': 0.0,
+          'Squat': 0.0,
+          'Deadlift': 0.0,
+        },
         'createdAt': FieldValue.serverTimestamp(),
       });
       print('User document created in Firestore');

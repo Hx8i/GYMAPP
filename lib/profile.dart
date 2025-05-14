@@ -6,7 +6,8 @@ import 'models/user_profile.dart';
 import 'services/profile_service.dart';
 
 class ProfilePage extends StatefulWidget {
-  const ProfilePage({Key? key}) : super(key: key);
+  final String? userId; // If null, show current user's profile
+  const ProfilePage({Key? key, this.userId}) : super(key: key);
 
   @override
   State<ProfilePage> createState() => _ProfilePageState();
@@ -16,11 +17,14 @@ class _ProfilePageState extends State<ProfilePage> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   bool isEditing = false;
   bool isLoading = true;
+  bool isFollowing = false;
   final ProfileService _profileService = ProfileService();
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _bioController = TextEditingController();
   UserProfile? _userProfile;
   File? _selectedImage;
+  List<UserProfile> followingList = [];
+  bool isLoadingFollowing = false;
   
   // Stats
   double weight = 85.5;
@@ -179,17 +183,24 @@ class _ProfilePageState extends State<ProfilePage> {
   void initState() {
     super.initState();
     _loadUserProfile();
+    if (widget.userId == null || widget.userId == _auth.currentUser?.uid) {
+      _loadFollowingList();
+    }
   }
 
   Future<void> _loadUserProfile() async {
     setState(() => isLoading = true);
     try {
-      final profile = await _profileService.getUserProfile();
+      final profile = await _profileService.getUserProfile(userId: widget.userId);
       setState(() {
         _userProfile = profile;
         _nameController.text = profile.name;
         _bioController.text = profile.bio;
       });
+      if (widget.userId != null) {
+        // Check if current user is following this profile
+        isFollowing = await _profileService.isFollowing(widget.userId!);
+      }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error loading profile: $e')),
@@ -230,45 +241,190 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
-  Future<void> _showLogoutConfirmation() async {
-    return showDialog(
+  Future<void> _toggleFollow() async {
+    if (_userProfile == null) return;
+    
+    try {
+      if (isFollowing) {
+        await _profileService.unfollowUser(_userProfile!.uid);
+      } else {
+        await _profileService.followUser(_userProfile!.uid);
+      }
+      setState(() {
+        isFollowing = !isFollowing;
+      });
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e')),
+      );
+    }
+  }
+
+  Color _getPlanColor(String plan) {
+    switch (plan) {
+      case 'Basic Plan':
+        return Colors.grey;
+      case 'Premium User':
+        return Colors.blue;
+      case 'Gym Owner':
+        return Colors.purple;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  Future<void> _loadFollowingList() async {
+    if (_userProfile == null) return;
+    
+    setState(() => isLoadingFollowing = true);
+    try {
+      final list = await _profileService.getFollowingList(_userProfile!.uid);
+      setState(() {
+        followingList = list;
+        isLoadingFollowing = false;
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading following list: $e')),
+        );
+      }
+      setState(() => isLoadingFollowing = false);
+    }
+  }
+
+  void _showFollowingList() {
+    showDialog(
       context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Logout'),
-          content: const Text('Are you sure you want to logout?'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text(
-                'Cancel',
-                style: TextStyle(color: Colors.grey),
+      builder: (context) => AlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(15),
+        ),
+        title: Row(
+          children: [
+            const Text(
+              'Following',
+              style: TextStyle(
+                color: Colors.black,
+                fontWeight: FontWeight.bold,
+                fontSize: 20,
               ),
             ),
-            TextButton(
-              onPressed: () async {
-                Navigator.of(context).pop();
-                try {
-                  await _auth.signOut();
-                  if (mounted) {
-                    Navigator.of(context).pushReplacementNamed('/login');
-                  }
-                } catch (e) {
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Error logging out: $e')),
-                    );
-                  }
-                }
-              },
-              child: const Text(
-                'Logout',
-                style: TextStyle(color: Colors.red),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.black,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                '${followingList.length}',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
               ),
             ),
           ],
-        );
-      },
+        ),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: followingList.isEmpty
+              ? const Center(
+                  child: Text(
+                    'Not following anyone yet',
+                    style: TextStyle(color: Colors.black54),
+                  ),
+                )
+              : ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: followingList.length,
+                  itemBuilder: (context, index) {
+                    final user = followingList[index];
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.grey[200]!),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.05),
+                            blurRadius: 5,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: ListTile(
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        leading: CircleAvatar(
+                          radius: 24,
+                          backgroundColor: Colors.grey[200],
+                          backgroundImage: user.profilePictureUrl != null
+                              ? NetworkImage(user.profilePictureUrl!)
+                              : null,
+                          child: user.profilePictureUrl == null
+                              ? const Icon(Icons.person, color: Colors.black54)
+                              : null,
+                        ),
+                        title: Text(
+                          user.name,
+                          style: const TextStyle(
+                            color: Colors.black,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 16,
+                          ),
+                        ),
+                        subtitle: Container(
+                          margin: const EdgeInsets.only(top: 4),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: _getPlanColor(user.plan),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            user.plan,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                        onTap: () {
+                          Navigator.pop(context);
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => ProfilePage(userId: user.uid),
+                            ),
+                          );
+                        },
+                      ),
+                    );
+                  },
+                ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.black,
+            ),
+            child: const Text(
+              'Close',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -286,25 +442,28 @@ class _ProfilePageState extends State<ProfilePage> {
       );
     }
 
+    final bool isCurrentUser = widget.userId == null || widget.userId == _auth.currentUser?.uid;
+
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
         actions: [
-          IconButton(
-            icon: Icon(
-              isEditing ? Icons.check : Icons.edit,
-              color: Colors.black,
+          if (isCurrentUser)
+            IconButton(
+              icon: Icon(
+                isEditing ? Icons.check : Icons.edit,
+                color: Colors.black,
+              ),
+              onPressed: () {
+                if (isEditing) {
+                  _saveProfile();
+                } else {
+                  setState(() => isEditing = true);
+                }
+              },
             ),
-            onPressed: () {
-              if (isEditing) {
-                _saveProfile();
-              } else {
-                setState(() => isEditing = true);
-              }
-            },
-          ),
         ],
       ),
       body: SingleChildScrollView(
@@ -350,7 +509,7 @@ class _ProfilePageState extends State<ProfilePage> {
                               : null,
                         ),
                       ),
-                      if (isEditing)
+                      if (isEditing && isCurrentUser)
                         Positioned(
                           bottom: 0,
                           right: 0,
@@ -374,35 +533,95 @@ class _ProfilePageState extends State<ProfilePage> {
                     ],
                   ),
                   const SizedBox(width: 20),
-                  // Name and Bio
+                  // Name, Bio, and Follow Button
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        if (isEditing)
-                          TextField(
-                            controller: _nameController,
-                            style: const TextStyle(
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black,
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                _userProfile!.name,
+                                style: const TextStyle(
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.black,
+                                ),
+                              ),
                             ),
-                            decoration: const InputDecoration(
-                              border: InputBorder.none,
-                              contentPadding: EdgeInsets.zero,
-                            ),
-                          )
-                        else
-                          Text(
-                            _userProfile!.name,
+                            if (isCurrentUser)
+                              GestureDetector(
+                                onTap: () {
+                                  _loadFollowingList();
+                                  _showFollowingList();
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                  decoration: BoxDecoration(
+                                    color: Colors.grey[100],
+                                    borderRadius: BorderRadius.circular(20),
+                                    border: Border.all(color: Colors.grey[300]!),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(Icons.people, size: 16, color: Colors.black54),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        '${followingList.length} Following',
+                                        style: const TextStyle(
+                                          fontSize: 14,
+                                          color: Colors.black54,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            if (!isCurrentUser)
+                              ElevatedButton(
+                                onPressed: _toggleFollow,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: isFollowing ? Colors.white : Colors.black,
+                                  foregroundColor: isFollowing ? Colors.black : Colors.white,
+                                  side: BorderSide(color: Colors.black),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                ),
+                                child: Text(
+                                  isFollowing ? 'Following' : 'Follow',
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: _getPlanColor(_userProfile!.plan),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            _userProfile!.plan,
                             style: const TextStyle(
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black,
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
                             ),
                           ),
+                        ),
                         const SizedBox(height: 8),
-                        if (isEditing)
+                        if (isEditing && isCurrentUser)
                           TextField(
                             controller: _bioController,
                             style: const TextStyle(
@@ -467,9 +686,9 @@ class _ProfilePageState extends State<ProfilePage> {
                     ],
                   ),
                   const SizedBox(height: 20),
-                  _buildStatRow("Weight", "${_userProfile!.weight.toStringAsFixed(1)} kg", isEditing),
-                  _buildStatRow("Height", "${_userProfile!.height.toStringAsFixed(2)} m", isEditing),
-                  _buildStatRow("Body Fat", "${_userProfile!.bodyFat.toStringAsFixed(1)}%", isEditing),
+                  _buildStatRow("Weight", "${_userProfile!.weight.toStringAsFixed(1)} kg", isEditing && isCurrentUser),
+                  _buildStatRow("Height", "${_userProfile!.height.toStringAsFixed(2)} m", isEditing && isCurrentUser),
+                  _buildStatRow("Body Fat", "${_userProfile!.bodyFat.toStringAsFixed(1)}%", isEditing && isCurrentUser),
                   const Divider(height: 30),
                   Row(
                     children: [
@@ -489,33 +708,9 @@ class _ProfilePageState extends State<ProfilePage> {
                   ..._userProfile!.prs.entries.map((entry) => _buildStatRow(
                     entry.key,
                     "${entry.value.toStringAsFixed(1)} kg",
-                    isEditing,
+                    isEditing && isCurrentUser,
                   )),
                 ],
-              ),
-            ),
-
-            // Logout Button
-            Container(
-              margin: const EdgeInsets.symmetric(horizontal: 20),
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: _showLogoutConfirmation,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.red,
-                  padding: const EdgeInsets.symmetric(vertical: 15),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                child: const Text(
-                  'Logout',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
               ),
             ),
             const SizedBox(height: 20),
@@ -575,6 +770,7 @@ class _ProfilePageState extends State<ProfilePage> {
                           height: _userProfile!.height,
                           bodyFat: _userProfile!.bodyFat,
                           prs: _userProfile!.prs,
+                          plan: _userProfile!.plan,
                         );
                       } else if (label == "Height") {
                         _userProfile = UserProfile(
@@ -586,6 +782,7 @@ class _ProfilePageState extends State<ProfilePage> {
                           height: doubleValue,
                           bodyFat: _userProfile!.bodyFat,
                           prs: _userProfile!.prs,
+                          plan: _userProfile!.plan,
                         );
                       } else if (label == "Body Fat") {
                         _userProfile = UserProfile(
@@ -597,6 +794,7 @@ class _ProfilePageState extends State<ProfilePage> {
                           height: _userProfile!.height,
                           bodyFat: doubleValue,
                           prs: _userProfile!.prs,
+                          plan: _userProfile!.plan,
                         );
                       } else {
                         final updatedPrs = Map<String, double>.from(_userProfile!.prs);
@@ -610,6 +808,7 @@ class _ProfilePageState extends State<ProfilePage> {
                           height: _userProfile!.height,
                           bodyFat: _userProfile!.bodyFat,
                           prs: updatedPrs,
+                          plan: _userProfile!.plan,
                         );
                       }
                     });

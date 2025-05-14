@@ -5,6 +5,7 @@ import 'comment_page.dart';
 import 'explore.dart';
 import 'Maps.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 
 class Homepage extends StatefulWidget {
@@ -16,6 +17,7 @@ class Homepage extends StatefulWidget {
 
 class _HomepageState extends State<Homepage> {
   int myIndex = 0;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
 
   final List<Widget> pages = [
    HomePage(),
@@ -35,17 +37,18 @@ class _HomepageState extends State<Homepage> {
         backgroundColor: Colors.black,
         elevation: 1, // Subtle shadow for depth
         centerTitle: true,
+        iconTheme: const IconThemeData(color: Colors.white),
         title: Text(
           'GYMHUB',
           style:  GoogleFonts.lora(
-            textStyle: TextStyle(
-
-            fontSize: 24,
-            color: Colors.white,
-          ),),
+            textStyle: const TextStyle(
+              fontSize: 24,
+              color: Colors.white,
+            ),
+          ),
         ),
       ),
-
+      drawer: DrawerContent(),
       body: pages[myIndex],
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: myIndex,
@@ -67,6 +70,101 @@ class _HomepageState extends State<Homepage> {
     );
   }
 }
+
+class DrawerContent extends StatelessWidget {
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+
+  DrawerContent({Key? key}) : super(key: key);
+
+  Future<void> _showLogoutConfirmation(BuildContext context) async {
+    return showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Logout'),
+          content: const Text('Are you sure you want to logout?'),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('Cancel'),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+            TextButton(
+              child: const Text('Logout'),
+              onPressed: () async {
+                await _auth.signOut();
+                if (context.mounted) {
+                  Navigator.of(context).pop();
+                }
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Drawer(
+      child: ListView(
+        padding: EdgeInsets.zero,
+        children: [
+          DrawerHeader(
+            decoration: const BoxDecoration(
+              color: Colors.black,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const CircleAvatar(
+                  radius: 30,
+                  backgroundColor: Colors.white,
+                  child: Icon(Icons.person, size: 35, color: Colors.black),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  _auth.currentUser?.email ?? 'User',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          ListTile(
+            leading: const Icon(Icons.add_circle_outline),
+            title: const Text('Add Post'),
+            onTap: () {
+              // TODO: Navigate to Add Post page
+              Navigator.pop(context);
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.school),
+            title: const Text('Courses'),
+            onTap: () {
+              // TODO: Navigate to Courses page
+              Navigator.pop(context);
+            },
+          ),
+          const Divider(),
+          ListTile(
+            leading: const Icon(Icons.logout, color: Colors.red),
+            title: const Text('Logout', style: TextStyle(color: Colors.red)),
+            onTap: () {
+              Navigator.pop(context);
+              _showLogoutConfirmation(context);
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class Post {
   final String username;
   final String userImage;
