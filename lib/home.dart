@@ -6,6 +6,9 @@ import 'explore.dart';
 import 'Maps.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'add_post.dart';
+import 'package:share_plus/share_plus.dart';
 
 
 class Homepage extends StatefulWidget {
@@ -105,6 +108,15 @@ class DrawerContent extends StatelessWidget {
     );
   }
 
+  void _showAddPostPopup(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return const AddPostPopup();
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Drawer(
@@ -138,8 +150,8 @@ class DrawerContent extends StatelessWidget {
             leading: const Icon(Icons.add_circle_outline),
             title: const Text('Add Post'),
             onTap: () {
-              // TODO: Navigate to Add Post page
               Navigator.pop(context);
+              _showAddPostPopup(context);
             },
           ),
           ListTile(
@@ -182,92 +194,388 @@ class Post {
 class HomePage extends StatelessWidget {
   HomePage({Key? key}) : super(key: key);
 
-  final List<Post> posts = [
-    Post(
-      username: "LiverKing",
-      userImage: "https://via.placeholder.com/150",
-      postImage: "https://th.bing.com/th/id/OIP.pAQ1nV_X1mdH9z3gGw9zdAHaE8?rs=1&pid=ImgDetMain",
-      caption: "PEAK NATURAL PHYSIC!!",
-    ),
-    Post(
-      username: "JackFitness",
-      userImage: "https://via.placeholder.com/150",
-      postImage: "https://i.ytimg.com/vi/NButY3BaVW4/maxresdefault.jpg",
-      caption: "Progress after 2 years. don't be jealous guys \u{1F604}.",
-    ),
-  ];
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+
+  Future<void> _deletePost(String postId, String userId) async {
+    if (_auth.currentUser?.uid != userId) return;
+    
+    try {
+      await _firestore.collection('posts').doc(postId).delete();
+    } catch (e) {
+      print('Error deleting post: $e');
+    }
+  }
+
+  Future<void> _reportPost(String postId) async {
+    try {
+      await _firestore.collection('reports').add({
+        'postId': postId,
+        'reportedBy': _auth.currentUser?.uid,
+        'timestamp': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      print('Error reporting post: $e');
+    }
+  }
+
+  void _showPostOptions(BuildContext context, String postId, String userId) {
+    final bool isOwner = _auth.currentUser?.uid == userId;
+    
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(15)),
+      ),
+      builder: (context) => Container(
+        padding: const EdgeInsets.symmetric(vertical: 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (isOwner)
+              ListTile(
+                leading: const Icon(Icons.delete, color: Colors.red),
+                title: const Text('Delete Post', style: TextStyle(color: Colors.red)),
+                onTap: () {
+                  Navigator.pop(context);
+                  _deletePost(postId, userId);
+                },
+              ),
+            ListTile(
+              leading: const Icon(Icons.flag, color: Colors.black),
+              title: const Text('Report Post'),
+              onTap: () {
+                Navigator.pop(context);
+                _reportPost(postId);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Post reported successfully'),
+                    backgroundColor: Colors.black,
+                  ),
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    return ListView.builder(
-      itemCount: posts.length,
-      itemBuilder: (context, index) {
-        final post = posts[index];
-        return Card(
-          margin: const EdgeInsets.symmetric(vertical: 10),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              ListTile(
-                leading: CircleAvatar(
-                  backgroundImage: NetworkImage(post.userImage),
+    return StreamBuilder<QuerySnapshot>(
+      stream: _firestore
+          .collection('users')
+          .doc(_auth.currentUser?.uid)
+          .collection('following')
+          .snapshots(),
+      builder: (context, followingSnapshot) {
+        if (followingSnapshot.hasError) {
+          return Center(child: Text('Error: ${followingSnapshot.error}'));
+        }
+
+        if (followingSnapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        // Get list of followed user IDs
+        final followingIds = followingSnapshot.data?.docs
+            .map((doc) => doc.id)
+            .toList() ?? [];
+        
+        // Add current user's ID to see their own posts
+        followingIds.add(_auth.currentUser?.uid ?? '');
+
+        return StreamBuilder<QuerySnapshot>(
+          stream: _firestore
+              .collection('posts')
+              .where('userId', whereIn: followingIds)
+              .orderBy('timestamp', descending: true)
+              .snapshots(),
+          builder: (context, postsSnapshot) {
+            if (postsSnapshot.hasError) {
+              return Center(child: Text('Error: ${postsSnapshot.error}'));
+            }
+
+            if (postsSnapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
+
+            final posts = postsSnapshot.data?.docs ?? [];
+
+            if (posts.isEmpty) {
+              return Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.people, size: 64, color: Colors.grey),
+                    const SizedBox(height: 16),
+                    Text(
+                      'No posts to show',
+                      style: TextStyle(
+                        color: Colors.grey[600],
+                        fontSize: 16,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Follow some users to see their posts here',
+                      style: TextStyle(
+                        color: Colors.grey[500],
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
                 ),
-                title: Text(post.username),
-                subtitle: const Text("2h ago"),
-                trailing: Icon(Icons.more_vert),
-              ),
-              Image.network(post.postImage),
-              Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: Text(post.caption),
-              ),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.start,
-                children: [
-                  const SizedBox(width: 8,),
-                  const LikeButton(),
-                  IconButton(
-                    icon: const Icon(Icons.comment),
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (context) => const CommentPage()),
-                      );
-                    },
-                  )
-                  ,
-                ],
-              ),
-              const SizedBox(height: 8),
-            ],
-          ),
+              );
+            }
+
+            return ListView.builder(
+              itemCount: posts.length,
+              itemBuilder: (context, index) {
+                final post = posts[index].data() as Map<String, dynamic>;
+                final postId = posts[index].id;
+                final timestamp = post['timestamp'] as Timestamp?;
+                final timeAgo = timestamp != null
+                    ? _getTimeAgo(timestamp.toDate())
+                    : 'Just now';
+
+                return Card(
+                  margin: const EdgeInsets.symmetric(vertical: 10),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      ListTile(
+                        leading: const CircleAvatar(
+                          backgroundColor: Colors.grey,
+                          child: Icon(Icons.person, color: Colors.white),
+                        ),
+                        title: StreamBuilder<DocumentSnapshot>(
+                          stream: _firestore
+                              .collection('users')
+                              .doc(post['userId'])
+                              .snapshots(),
+                          builder: (context, userSnapshot) {
+                            if (userSnapshot.hasError) {
+                              return const Text('Error loading user');
+                            }
+
+                            if (userSnapshot.connectionState == ConnectionState.waiting) {
+                              return const Text('Loading...');
+                            }
+
+                            final userData = userSnapshot.data?.data() as Map<String, dynamic>?;
+                            final userName = userData?['name'] ?? 'Anonymous';
+                            final userEmail = post['userEmail'] ?? '';
+
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  userName,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.black,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                                Text(
+                                  userEmail,
+                                  style: TextStyle(
+                                    color: Colors.grey[600],
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
+                            );
+                          },
+                        ),
+                        subtitle: Text(
+                          timeAgo,
+                          style: TextStyle(
+                            color: Colors.grey[600],
+                            fontSize: 12,
+                          ),
+                        ),
+                        trailing: IconButton(
+                          icon: const Icon(Icons.more_vert, color: Colors.black),
+                          onPressed: () => _showPostOptions(
+                            context,
+                            postId,
+                            post['userId'],
+                          ),
+                        ),
+                      ),
+                      AspectRatio(
+                        aspectRatio: 4/3,
+                        child: Image.network(
+                          post['imageUrl'] ?? '',
+                          fit: BoxFit.cover,
+                          loadingBuilder: (context, child, loadingProgress) {
+                            if (loadingProgress == null) return child;
+                            return Container(
+                              color: Colors.grey[200],
+                              child: const Center(
+                                child: CircularProgressIndicator(
+                                  valueColor: AlwaysStoppedAnimation<Color>(Colors.black),
+                                ),
+                              ),
+                            );
+                          },
+                          errorBuilder: (context, error, stackTrace) {
+                            return Container(
+                              color: Colors.grey[200],
+                              child: const Center(
+                                child: Icon(Icons.error, color: Colors.grey),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Text(
+                          post['caption'] ?? '',
+                          style: const TextStyle(
+                            color: Colors.black,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        child: Row(
+                          children: [
+                            LikeButton(
+                              postId: postId,
+                              initialLikes: post['likes'] ?? 0,
+                              likedBy: List<String>.from(post['likedBy'] ?? []),
+                            ),
+                            const SizedBox(width: 16),
+                            IconButton(
+                              icon: const Icon(Icons.share, color: Colors.black),
+                              onPressed: () async {
+                                try {
+                                  await Share.share(
+                                    'Check out this post by ${post['userEmail']}: ${post['caption']}',
+                                  );
+                                } catch (e) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('Error sharing post: $e'),
+                                      backgroundColor: Colors.black,
+                                    ),
+                                  );
+                                }
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                    ],
+                  ),
+                );
+              },
+            );
+          },
         );
       },
     );
   }
+
+  String _getTimeAgo(DateTime dateTime) {
+    final now = DateTime.now();
+    final difference = now.difference(dateTime);
+
+    if (difference.inDays > 0) {
+      return '${difference.inDays}d ago';
+    } else if (difference.inHours > 0) {
+      return '${difference.inHours}h ago';
+    } else if (difference.inMinutes > 0) {
+      return '${difference.inMinutes}m ago';
+    } else {
+      return 'Just now';
+    }
+  }
 }
+
 class LikeButton extends StatefulWidget {
-  const LikeButton({Key? key}) : super(key: key);
+  final String postId;
+  final int initialLikes;
+  final List<String> likedBy;
+
+  const LikeButton({
+    Key? key,
+    required this.postId,
+    required this.initialLikes,
+    required this.likedBy,
+  }) : super(key: key);
 
   @override
   _LikeButtonState createState() => _LikeButtonState();
 }
 
 class _LikeButtonState extends State<LikeButton> {
-  bool isLiked = false;
+  late bool isLiked;
+  late int likeCount;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+
+  @override
+  void initState() {
+    super.initState();
+    isLiked = widget.likedBy.contains(_auth.currentUser?.uid);
+    likeCount = widget.initialLikes;
+  }
+
+  Future<void> _toggleLike() async {
+    final userId = _auth.currentUser?.uid;
+    if (userId == null) return;
+
+    setState(() {
+      isLiked = !isLiked;
+      likeCount += isLiked ? 1 : -1;
+    });
+
+    try {
+      await _firestore.collection('posts').doc(widget.postId).update({
+        'likes': likeCount,
+        'likedBy': isLiked
+            ? FieldValue.arrayUnion([userId])
+            : FieldValue.arrayRemove([userId]),
+      });
+    } catch (e) {
+      // Revert the state if the update fails
+      setState(() {
+        isLiked = !isLiked;
+        likeCount += isLiked ? 1 : -1;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error updating like: $e')),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    return IconButton(
-      icon: Icon(
-        isLiked ? Icons.favorite : Icons.favorite_border_rounded,
-        color: isLiked ? Colors.red : Colors.grey,
-      ),
-      onPressed: () {
-        setState(() {
-          isLiked = !isLiked;
-        });
-      },
+    return Row(
+      children: [
+        IconButton(
+          icon: Icon(
+            isLiked ? Icons.favorite : Icons.favorite_border_rounded,
+            color: isLiked ? Colors.red : Colors.grey,
+          ),
+          onPressed: _toggleLike,
+        ),
+        Text('$likeCount'),
+      ],
     );
   }
 }
