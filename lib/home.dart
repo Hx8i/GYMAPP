@@ -9,6 +9,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'add_post.dart';
 import 'package:share_plus/share_plus.dart';
+import 'courses.dart';
 
 
 class Homepage extends StatefulWidget {
@@ -158,8 +159,13 @@ class DrawerContent extends StatelessWidget {
             leading: const Icon(Icons.school),
             title: const Text('Courses'),
             onTap: () {
-              // TODO: Navigate to Courses page
               Navigator.pop(context);
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const CoursesPage(),
+                ),
+              );
             },
           ),
           const Divider(),
@@ -409,6 +415,17 @@ class HomePage extends StatelessWidget {
                             post['userId'],
                           ),
                         ),
+                        onTap: () {
+                          // Only navigate if the post is not from the current user
+                          if (post['userId'] != _auth.currentUser?.uid) {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => ProfilePage(userId: post['userId']),
+                              ),
+                            );
+                          }
+                        },
                       ),
                       AspectRatio(
                         aspectRatio: 4/3,

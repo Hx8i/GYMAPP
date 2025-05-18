@@ -1,0 +1,146 @@
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    function isPremiumUser() {
+      return isAuthenticated() && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.plan in ['Premium User', 'Gym Owner'];
+    }
+
+    // User profiles
+    match /users/{userId} {
+      // Anyone can read user profiles
+      allow read: if isAuthenticated();
+      // Only the owner can update their profile
+      allow update: if isOwner(userId);
+      
+      // Following subcollection
+      match /following/{followingId} {
+        // Users can read their own following list
+        allow read: if isAuthenticated();
+        // Users can only add/remove to their own following list
+        allow write: if isOwner(userId);
+      }
+      
+      // Followers subcollection
+      match /followers/{followerId} {
+        // Anyone can read followers list
+        allow read: if isAuthenticated();
+        // Allow users to add/remove themselves as followers
+        allow write: if request.auth.uid == followerId;
+      }
+    }
+
+    // Posts collection
+    match /posts/{postId} {
+      // Anyone can read posts
+      allow read: if isAuthenticated();
+      
+      // Only authenticated users can create posts
+      allow create: if isAuthenticated() 
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.userEmail == request.auth.token.email
+        && request.resource.data.timestamp is timestamp
+        && request.resource.data.likes is number
+        && request.resource.data.likedBy is list;
+      
+      // Only post owner can update most fields
+      // But anyone can update likes and likedBy
+      allow update: if isOwner(resource.data.userId)
+        || (request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['likes', 'likedBy']));
+      
+      // Only post owner can delete their posts
+      allow delete: if isOwner(resource.data.userId);
+    }
+
+    // Courses collection
+    match /courses/{courseId} {
+      // Anyone can read published courses
+      allow read: if isAuthenticated();
+      
+      // Only premium users can create courses
+      allow create: if isPremiumUser()
+        && request.resource.data.creatorId == request.auth.uid
+        && request.resource.data.creatorName is string
+        && request.resource.data.title is string
+        && request.resource.data.description is string
+        && request.resource.data.price is number
+        && request.resource.data.subscribers is list
+        && request.resource.data.workoutPlans is list
+        && request.resource.data.videoUrls is list
+        && request.resource.data.photoUrls is list
+        && request.resource.data.createdAt is timestamp
+        && request.resource.data.isPublished is bool;
+      
+      // Only course creator can update their courses
+      allow update: if isOwner(resource.data.creatorId)
+        || (request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['subscribers', 'isPublished']));
+      
+      // Only course creator can delete their courses
+      allow delete: if isOwner(resource.data.creatorId);
+    }
+
+    // Chats collection
+    match /chats/{chatId} {
+      // Users can only read chats they're part of
+      allow read: if isAuthenticated() && 
+        (request.auth.uid in resource.data.participants);
+      
+      // Users can create chats if they're a participant
+      allow create: if isAuthenticated()
+        && request.resource.data.participants.hasAll([request.auth.uid])
+        && request.resource.data.courseId is string
+        && request.resource.data.courseTitle is string
+        && request.resource.data.studentId is string
+        && request.resource.data.studentName is string
+        && request.resource.data.instructorId is string
+        && request.resource.data.instructorName is string
+        && request.resource.data.lastMessageTime is timestamp
+        && request.resource.data.lastMessage is string
+        && request.resource.data.isRead is bool;
+      
+      // Users can update chats they're part of
+      allow update: if isAuthenticated() && 
+        (request.auth.uid in resource.data.participants);
+      
+      // Users can delete chats they're part of
+      allow delete: if isAuthenticated() && 
+        (request.auth.uid in resource.data.participants);
+
+      // Chat messages subcollection
+      match /messages/{messageId} {
+        // Users can read messages in chats they're part of
+        allow read: if isAuthenticated() && 
+          (request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants);
+        
+        // Users can create messages in chats they're part of
+        allow create: if isAuthenticated()
+          && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants
+          && request.resource.data.senderId == request.auth.uid
+          && request.resource.data.senderName is string
+          && request.resource.data.content is string
+          && request.resource.data.timestamp is timestamp
+          && request.resource.data.isRead is bool;
+        
+        // Users can update messages they sent
+        allow update: if isAuthenticated()
+          && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isRead']);
+        
+        // Users can delete messages they sent
+        allow delete: if isAuthenticated()
+          && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants
+          && resource.data.senderId == request.auth.uid;
+      }
+    }
+  }
+} 
