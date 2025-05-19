@@ -173,4 +173,46 @@ class CourseService {
       'isPublished': false,
     });
   }
+
+  // Delete a course
+  Future<void> deleteCourse(String courseId) async {
+    final userId = _auth.currentUser?.uid;
+    if (userId == null) throw Exception('User not authenticated');
+
+    final courseDoc = await _firestore.collection('courses').doc(courseId).get();
+    if (!courseDoc.exists) throw Exception('Course not found');
+
+    final courseData = courseDoc.data();
+    if (courseData == null) throw Exception('Course data not found');
+
+    if (courseData['creatorId'] != userId) {
+      throw Exception('Only the course creator can delete the course');
+    }
+
+    // Delete course document
+    await _firestore.collection('courses').doc(courseId).delete();
+
+    // Delete associated media files
+    if (courseData['videoUrls'] != null) {
+      for (String videoUrl in courseData['videoUrls']) {
+        try {
+          final ref = _storage.refFromURL(videoUrl);
+          await ref.delete();
+        } catch (e) {
+          print('Error deleting video: $e');
+        }
+      }
+    }
+
+    if (courseData['photoUrls'] != null) {
+      for (String photoUrl in courseData['photoUrls']) {
+        try {
+          final ref = _storage.refFromURL(photoUrl);
+          await ref.delete();
+        } catch (e) {
+          print('Error deleting photo: $e');
+        }
+      }
+    }
+  }
 } 
