@@ -52,7 +52,7 @@ class _ChatPageState extends State<ChatPage> {
             itemBuilder: (context, index) {
               final chat = chats[index];
               final isInstructor = chat.instructorId == _auth.currentUser?.uid;
-              final otherUserName = (isInstructor ? chat.studentName : chat.instructorName) ?? 'User';
+              final otherUserName = isInstructor ? chat.studentName : chat.instructorName;
 
               return Card(
                 margin: const EdgeInsets.only(bottom: 16),
@@ -103,7 +103,7 @@ class _ChatPageState extends State<ChatPage> {
                               ),
                               const SizedBox(height: 4),
                               Text(
-                                chat.courseTitle ?? '',
+                                chat.courseTitle,
                                 style: TextStyle(
                                   fontSize: 14,
                                   color: Colors.grey[600],
@@ -111,7 +111,7 @@ class _ChatPageState extends State<ChatPage> {
                               ),
                               const SizedBox(height: 4),
                               Text(
-                                chat.lastMessage ?? '',
+                                chat.lastMessage,
                                 style: TextStyle(
                                   fontSize: 14,
                                   color: chat.isRead ? Colors.grey[600] : Colors.black,
@@ -199,19 +199,17 @@ class _ChatScreenState extends State<ChatScreen> {
     );
 
     _messageController.clear();
-    if (_scrollController.hasClients) {
-      _scrollController.animateTo(
-        0,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeOut,
-      );
-    }
+    _scrollController.animateTo(
+      0,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOut,
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final isInstructor = widget.chat.instructorId == _auth.currentUser?.uid;
-    final otherUserName = (isInstructor ? widget.chat.studentName : widget.chat.instructorName) ?? 'User';
+    final otherUserName = isInstructor ? widget.chat.studentName : widget.chat.instructorName;
 
     return Scaffold(
       appBar: AppBar(
@@ -227,7 +225,7 @@ class _ChatScreenState extends State<ChatScreen> {
               ),
             ),
             Text(
-              widget.chat.courseTitle ?? '',
+              widget.chat.courseTitle,
               style: TextStyle(
                 color: Colors.grey[600],
                 fontSize: 12,
@@ -289,7 +287,7 @@ class _ChatScreenState extends State<ChatScreen> {
                               Padding(
                                 padding: const EdgeInsets.only(bottom: 4),
                                 child: Text(
-                                  message.senderName ?? 'User',
+                                  message.senderName,
                                   style: TextStyle(
                                     fontSize: 12,
                                     color: Colors.grey[600],
@@ -297,7 +295,7 @@ class _ChatScreenState extends State<ChatScreen> {
                                 ),
                               ),
                             Text(
-                              message.content ?? '',
+                              message.content,
                               style: TextStyle(
                                 color: isMe ? Colors.white : Colors.black,
                               ),

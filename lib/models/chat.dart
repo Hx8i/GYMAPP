@@ -77,12 +77,12 @@ class Message {
 
   factory Message.fromMap(Map<String, dynamic> map) {
     return Message(
-      id: map['id'] as String? ?? '',
-      chatId: map['chatId'] as String? ?? '',
-      senderId: map['senderId'] as String? ?? '',
-      senderName: map['senderName'] as String? ?? 'User',
-      content: map['content'] as String? ?? '',
-      timestamp: (map['timestamp'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      id: map['id'] as String,
+      chatId: map['chatId'] as String,
+      senderId: map['senderId'] as String,
+      senderName: map['senderName'] as String,
+      content: map['content'] as String,
+      timestamp: (map['timestamp'] as Timestamp).toDate(),
       isRead: map['isRead'] as bool? ?? false,
     );
   }

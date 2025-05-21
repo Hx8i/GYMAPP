@@ -9,7 +9,6 @@ import 'models/chat.dart';
 import 'chat.dart';
 import 'models/course.dart';
 import 'services/course_service.dart';
-import 'screens/course_details_screen.dart';
 
 class CoursesPage extends StatefulWidget {
   const CoursesPage({Key? key}) : super(key: key);
@@ -101,31 +100,10 @@ class _CoursesPageState extends State<CoursesPage> with SingleTickerProviderStat
                 itemCount: courses.length,
                 itemBuilder: (context, index) {
                   final course = courses[index];
-                  final currentUserId = FirebaseAuth.instance.currentUser?.uid;
-                  final alreadySubscribed = course.subscribers.contains(currentUserId);
                   return CourseCard(
                     course: course,
-                    isSubscribed: alreadySubscribed,
-                    onSubscribe: () {
-                      if (alreadySubscribed) {
-                        // Show popup message
-                        showDialog(
-                          context: context,
-                          builder: (context) => AlertDialog(
-                            title: const Text('Already Subscribed'),
-                            content: const Text('You are already subscribed (:'),
-                            actions: [
-                              TextButton(
-                                onPressed: () => Navigator.pop(context),
-                                child: const Text('OK'),
-                              ),
-                            ],
-                          ),
-                        );
-                      } else {
-                        _courseService.subscribeToCourse(course.id);
-                      }
-                    },
+                    isSubscribed: false,
+                    onSubscribe: () => _courseService.subscribeToCourse(course.id),
                     onUnsubscribe: () => _courseService.unsubscribeFromCourse(course.id),
                   );
                 },
@@ -215,218 +193,149 @@ class CourseCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final currentUserId = FirebaseAuth.instance.currentUser?.uid;
-    final isOwner = currentUserId == course.creatorId;
-
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
       ),
-      child: InkWell(
-        onTap: isSubscribed ? () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => CourseDetailsScreen(course: course),
-            ),
-          );
-        } : null,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (course.photoUrls.isNotEmpty)
-              ClipRRect(
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-                child: Image.network(
-                  course.photoUrls.first,
-                  height: 200,
-                  width: double.infinity,
-                  fit: BoxFit.cover,
-                ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (course.photoUrls.isNotEmpty)
+            ClipRRect(
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+              child: Image.network(
+                course.photoUrls.first,
+                height: 200,
+                width: double.infinity,
+                fit: BoxFit.cover,
               ),
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Expanded(
-                        child: Text(
-                          course.title,
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                      Text(
-                        '\$${course.price.toStringAsFixed(2)}',
+            ),
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        course.title,
                         style: const TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
-                          color: Colors.black,
                         ),
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    course.description,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey[600],
                     ),
+                    Text(
+                      '\$${course.price.toStringAsFixed(2)}',
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  course.description,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey[600],
                   ),
-                  const SizedBox(height: 16),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'By ${course.creatorName}',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey[600],
-                        ),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'By ${course.creatorName}',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey[600],
                       ),
-                      Text(
-                        '${course.subscribers.length} subscribers',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey[600],
-                        ),
+                    ),
+                    Text(
+                      '${course.subscribers.length} subscribers',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey[600],
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: isSubscribed ? onUnsubscribe : onSubscribe,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: isSubscribed ? Colors.grey : Colors.black,
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                          ),
-                          child: Text(
-                            isSubscribed ? 'Unsubscribe' : 'Subscribe',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 16,
-                            ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: isSubscribed ? onUnsubscribe : onSubscribe,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: isSubscribed ? Colors.grey : Colors.black,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
                           ),
                         ),
-                      ),
-                      if (isSubscribed) ...[
-                        const SizedBox(width: 8),
-                        IconButton(
-                          onPressed: () async {
-                            final chatService = ChatService();
-                            final auth = FirebaseAuth.instance;
-                            
-                            try {
-                              // Create a new chat if it doesn't exist
-                              final chatId = await chatService.createChat(
-                                courseId: course.id,
-                                courseTitle: course.title,
-                                studentId: auth.currentUser!.uid,
-                                studentName: auth.currentUser!.displayName ?? 'User',
-                                instructorId: course.creatorId,
-                                instructorName: course.creatorName,
-                              );
-
-                              if (context.mounted) {
-                                // Navigate to the chat screen
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => ChatScreen(
-                                      chat: Chat(
-                                        id: chatId,
-                                        courseId: course.id,
-                                        courseTitle: course.title,
-                                        studentId: auth.currentUser!.uid,
-                                        studentName: auth.currentUser!.displayName ?? 'User',
-                                        instructorId: course.creatorId,
-                                        instructorName: course.creatorName,
-                                        lastMessageTime: DateTime.now(),
-                                        lastMessage: '',
-                                        isRead: true,
-                                      ),
-                                    ),
-                                  ),
-                                );
-                              }
-                            } catch (e) {
-                              if (context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text('Error creating chat: $e')),
-                                );
-                              }
-                            }
-                          },
-                          icon: const Icon(Icons.chat, color: Colors.black),
-                          tooltip: 'Chat with instructor',
+                        child: Text(
+                          isSubscribed ? 'Unsubscribe' : 'Subscribe',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                          ),
                         ),
-                      ],
-                      if (isOwner) ...[
-                        const SizedBox(width: 8),
-                        IconButton(
-                          onPressed: () {
-                            showDialog(
-                              context: context,
-                              builder: (context) => AlertDialog(
-                                title: const Text('Delete Course'),
-                                content: const Text('Are you sure you want to delete this course? This action cannot be undone.'),
-                                actions: [
-                                  TextButton(
-                                    onPressed: () => Navigator.pop(context),
-                                    child: const Text('Cancel'),
+                      ),
+                    ),
+                    if (isSubscribed) ...[
+                      const SizedBox(width: 8),
+                      IconButton(
+                        onPressed: () {
+                          final chatService = ChatService();
+                          final auth = FirebaseAuth.instance;
+                          
+                          // Create a new chat if it doesn't exist
+                          chatService.createChat(
+                            courseId: course.id,
+                            courseTitle: course.title,
+                            studentId: auth.currentUser!.uid,
+                            studentName: auth.currentUser!.displayName ?? 'User',
+                            instructorId: course.creatorId,
+                            instructorName: course.creatorName,
+                          ).then((chatId) {
+                            // Navigate to the chat screen
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => ChatScreen(
+                                  chat: Chat(
+                                    id: chatId,
+                                    courseId: course.id,
+                                    courseTitle: course.title,
+                                    studentId: auth.currentUser!.uid,
+                                    studentName: auth.currentUser!.displayName ?? 'User',
+                                    instructorId: course.creatorId,
+                                    instructorName: course.creatorName,
+                                    lastMessageTime: DateTime.now(),
+                                    lastMessage: '',
+                                    isRead: true,
                                   ),
-                                  TextButton(
-                                    onPressed: () async {
-                                      try {
-                                        await CourseService().deleteCourse(course.id);
-                                        if (context.mounted) {
-                                          Navigator.pop(context); // Close dialog
-                                          ScaffoldMessenger.of(context).showSnackBar(
-                                            const SnackBar(content: Text('Course deleted successfully')),
-                                          );
-                                        }
-                                      } catch (e) {
-                                        if (context.mounted) {
-                                          Navigator.pop(context); // Close dialog
-                                          ScaffoldMessenger.of(context).showSnackBar(
-                                            SnackBar(content: Text('Error deleting course: $e')),
-                                          );
-                                        }
-                                      }
-                                    },
-                                    child: const Text(
-                                      'Delete',
-                                      style: TextStyle(color: Colors.red),
-                                    ),
-                                  ),
-                                ],
+                                ),
                               ),
                             );
-                          },
-                          icon: const Icon(Icons.delete, color: Colors.red),
-                          tooltip: 'Delete course',
-                        ),
-                      ],
+                          });
+                        },
+                        icon: const Icon(Icons.chat, color: Colors.black),
+                        tooltip: 'Chat with instructor',
+                      ),
                     ],
-                  ),
-                ],
-              ),
+                  ],
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

@@ -48,8 +48,6 @@ dependencies:
   firebase_crashlytics: ^3.4.19
   image_picker: ^1.0.7
   share_plus: ^10.0.0
-  video_player: ^2.8.1
-  chewie: ^1.7.1
 dev_dependencies:
   flutter_test:
     sdk: flutter
